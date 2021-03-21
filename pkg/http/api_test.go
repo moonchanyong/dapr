@@ -2488,6 +2488,10 @@ func (c fakeStateStore) Set(req *state.SetRequest) error {
 	return errors.New("NOT FOUND")
 }
 
+func (c fakeStateStore) Ping() error {
+	return nil
+}
+
 func (c fakeStateStore) Multi(request *state.TransactionalStateRequest) error {
 	if request.Metadata != nil && request.Metadata["error"] == "true" {
 		return errors.New("Transaction error")
@@ -2636,12 +2640,18 @@ func TestV1SecretEndpoints(t *testing.T) {
 
 func TestV1HealthzEndpoint(t *testing.T) {
 	fakeServer := newFakeHTTPServer()
-
-	testAPI := &api{
-		actor: nil,
-		json:  jsoniter.ConfigFastest,
+	var fakeStore state.Store = fakeStateStore{}
+	fakeStores := map[string]state.Store{
+		"store1": fakeStore,
 	}
 
+	testAPI := &api{
+		actor:       nil,
+		json:        jsoniter.ConfigFastest,
+		stateStores: fakeStores,
+	}
+
+	storeName := "store1"
 	fakeServer.StartServer(testAPI.constructHealthzEndpoints())
 
 	t.Run("Healthz - 500 ERR_HEALTH_NOT_READY", func(t *testing.T) {
@@ -2654,6 +2664,13 @@ func TestV1HealthzEndpoint(t *testing.T) {
 	t.Run("Healthz - 204 No Content", func(t *testing.T) {
 		apiPath := "v1.0/healthz"
 		testAPI.MarkStatusAsReady()
+		resp := fakeServer.DoRequest("GET", apiPath, nil, nil)
+
+		assert.Equal(t, 204, resp.StatusCode)
+	})
+
+	t.Run("StateStore healthz - 204 No Content", func(t *testing.T) {
+		apiPath := fmt.Sprintf("v1.0/healthz/state/%s", storeName)
 		resp := fakeServer.DoRequest("GET", apiPath, nil, nil)
 
 		assert.Equal(t, 204, resp.StatusCode)

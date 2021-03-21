@@ -86,6 +86,10 @@ func (_m *MockStateStore) BulkGet(req []state.GetRequest) (bool, []state.BulkGet
 	return false, nil, nil
 }
 
+func (_m *MockStateStore) Ping() error {
+	return nil
+}
+
 // Init provides a mock function with given fields: metadata
 func (_m *MockStateStore) Init(metadata state.Metadata) error {
 	ret := _m.Called(metadata)
